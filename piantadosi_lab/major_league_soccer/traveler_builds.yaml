@@ -1,0 +1,28 @@
+# Define inputs.
+inputs:
+  - name: ay36_sequences
+    metadata: data/AY36_metadata.tsv
+    sequences: data/AY36_sequences.fasta
+  - name: traveler
+    metadata: data/traveler.tsv
+    sequences: data/mls122215001711.fasta
+  - name: references
+    metadata: data/references_metadata.tsv
+    sequences: data/references_sequences.fasta
+
+# Define builds.
+builds:
+  traveler_tree:
+    subsampling_scheme: traveler_tree_scheme
+
+# Define subsampling schemes.
+subsampling:
+  traveler_tree_scheme:
+    first_rule:
+      query: --query "(traveler == 'yes')"
+    second_rule:
+      query: --query "(ay36_sequences == 'yes')"
+      max_sequences: 150
+      priorities:
+        type: proximity
+        focus: first_rule
