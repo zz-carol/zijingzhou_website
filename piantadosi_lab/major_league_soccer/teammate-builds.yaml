@@ -1,0 +1,40 @@
+# Define inputs:
+inputs:
+  - name: ay4_sequences
+    metadata: data/AY4_meta.tsv
+    sequences: data/AY4all_sequences.fasta
+  - name: teammates
+    metadata: data/MLS_teammates_metaEdit.tsv
+    sequences: data/MLS_teammates_seq.fasta
+  - name: references
+    metadata: data/references_metadata.tsv
+    sequences: data/references_sequences.fasta
+
+# Define builds.
+builds:
+  teammate_tree:
+    subsampling_scheme: teammate_scheme
+
+# Define subsampling schemes.
+subsampling:
+  teammate_scheme:
+    first_rule:
+      query: --query "(teammates == 'yes')"
+    MLS:
+      query: --query "(ay4_sequences == 'yes') & (division == 'Pennsylvania')"
+      max_sequences: 75
+      priorities:
+        type: proximity
+        focus: first_rule
+    North_America:
+      query: --query "(ay4_sequences == 'yes') & (division != 'Pennsylvania') & (region == 'North America')"
+      max_sequences: 50
+      priorities:
+        type: proximity
+        focus: first_rule
+    Global:
+      query: --query "(ay4_sequences == 'yes') & (region != 'North America')"
+      max_sequences: 25
+      priorities:
+        type: proximity
+        focus: first_rule
