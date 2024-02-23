@@ -1,0 +1,318 @@
+---
+title: "QTM 220 Problem Set 2"
+author: "Carol Zhou"
+date: "2023-09-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+(1)
+Please see the other attached pdf.
+
+(2)
+```{r}
+nba_season = read.csv("nba.sample.data.csv")
+```
+
+(2.a)
+```{r}
+n_occur = data.frame(table(nba_season$Player))
+n_occur[n_occur$Freq > 1,]
+```
+The sampling procedure was with replacement because there are a few observations with the same player's name. You will you not always be able to know for sure what sampling procedure was used. If there are no duplicates, then you are not sure if replacement is used.
+
+(2.b)
+```{r}
+mean(nba_season$PTS)
+sd(nba_season$PTS)
+```
+The mean number of season points is 471.56. The standard deviation is 459.24.
+
+(2.c)
+```{r}
+ggplot(nba_season, aes(x = PTS)) +
+  geom_histogram(color = "black", fill = "white")+
+  theme_bw()
+```
+
+(2.d)
+```{r}
+n_runs = 10000
+mean_bs = rep(NA, n_runs)
+data_sample = nba_season$PTS
+for (i in 1:n_runs) {
+  obs <- sample(1:nrow(nba_season), replace = T)
+  mean_bs[i] <- mean(data_sample[obs])
+}
+```
+
+(2.e)
+```{r}
+ggplot() + 
+  geom_histogram(aes(x = mean_bs, y = after_stat(density)), binwidth = 20, fill= "white", color="black") +
+  labs(x = "means", title = "Bootstrapped Means for Seasonal Points") +
+  theme_minimal()
+```
+
+(2.f)
+```{r}
+quantile(mean_bs, c(0.025, 0.975))
+561.83 - 385.38
+```
+The 95% confidence interval is (384.38, 561.83). The width is 176.45.
+
+(2.g)
+```{r}
+mean_sam = mean(mean_bs)
+# from lab
+sd_sam <- sqrt(mean_sam^2 / length(data_sample))
+print(c(mean_sam - 1.96 * sd_sam, mean_sam + 1.96 * sd_sam))
+563.86 - 379.05
+# according to the standard error formula
+sd_sam = sd(mean_bs) / sqrt(length(data_sample))
+print(c(mean_sam - 1.96 * sd_sam, mean_sam + 1.96 * sd_sam))
+```
+The 95% confidence interval is (379.05, 563.86). The width is 184.81. However, I am unsure why we calculated CI that way in lab. So, I calculated the CI using the formula from the internet. The 95% confidence interval is (462.64, 480.27).
+
+(2.h)
+The plug-in CI is very similar and just slightly larger to the bootstrapped CI.
+
+(2.i)
+```{r}
+quantile(mean_bs, c(0.005, 0.995))
+589.13 - 361.08
+sd_sam <- sqrt(mean_sam^2 / length(data_sample))
+print(c(mean_sam - 2.576 * sd_sam, mean_sam + 2.576 * sd_sam))
+592.91 - 350.01
+```
+The 99% confidence interval for the bootstrapped method is (361.08, 589.13), and the width is 228.05. The CI for the plug-in method is (350.01, 592.91), and the width is 242.9. The plug-in CI is very similar and slightly larger to the bootstrapped CI. Compared to the 95% interval, the 99% interval covers more observations. 
+
+(2.j)
+```{r}
+quantile(mean_bs, c(0.05, 0.95))
+546.52 - 399.39
+print(c(mean_sam - 1.645 * sd_sam, mean_sam + 1.645 * sd_sam))
+549.01 - 393.9
+```
+The 90% confidence interval for the bootstrapped method is (399.39, 546.52) and for the plug-in method is (393.9, 549.01). The plug-in CI is similar and slightly larger to the bootstrapped CI. Compared to the 95% and 99% intervals, the 90% interval covers less observations.
+
+Comparing Sample and Population
+
+(3)
+```{r}
+nba = read.csv("nba.data.csv")
+```
+
+(3.a)
+```{r}
+mean(nba$PTS)
+sd(nba$PTS)
+```
+The population mean is 523.43, and the population standard deviation is 498.08. Both the population mean and standard deviation are larger than the sample mean (471.56) and the sample standard deviation (459.24).
+
+(3.b)
+```{r}
+ggplot(nba, aes(x = PTS)) +
+  geom_histogram(color = "black", fill = "white")+
+  theme_bw()
+```
+
+(3.c)
+```{r}
+n_runs = 10000
+sam_means = rep(NA, n_runs)
+data = nba$PTS
+for (i in 1:n_runs) {
+  obs <- sample(1:nrow(nba), replace = T)
+  sam_means[i] <- mean(data[obs])
+}
+```
+
+(3.d)
+```{r}
+ggplot() + 
+  geom_histogram(aes(x = sam_means, y = after_stat(density)), binwidth = 10, fill="white", color="black") +
+  labs(x = "means", title = "A Sampling Distribution of The Mean") +
+  theme_minimal()
+```
+
+(3.e)
+```{r}
+quantile(sam_means, c(0.025, 0.975))
+565.87 - 482.31
+```
+The 95% confidence interval is (482.31, 565.87), and the width is 83.56. The sample mean (471.56) from question 2 does not fall in the CI. This width is smaller than the width of the bootstrapped (176.45) and plug-in methods (184.8) is (384.46, 563.37) and using the plug-in method is (379.13, 563.99), meaning this 95% CI is narrower and covers less observations. 
+
+(3.f)
+```{r}
+summary(mean_bs)
+sd(mean_bs)
+summary(sam_means)
+sd(sam_means)
+```
+This histogram is not similar to the sample bootstrap histogram. The means and standard deviations are very different. However, both distributions are both normal and have similar shape.
+
+(3.g)
+All the CIs (90%, 95%, and 99%) calculated with the sample data cover the population mean.
+
+(3.h)
+```{r}
+nba_atl = subset(nba, Team == "ATL")
+mean(nba_atl$PTS) # 590.28
+```
+The mean seasonal point is 590.28 for the Atlanta Hawk. The sub-population mean is larger than the mean points overall (523.43).
+
+(4)
+```{r}
+alt_nba = read.csv("alt.nba.sample.csv")
+```
+
+(4.a)
+```{r}
+n_occur = data.frame(table(alt_nba$Player))
+n_occur[n_occur$Freq > 1,]
+```
+The sampling procedure was with replacement because there are a few observations with the same player's name.
+
+(4.b)
+```{r}
+mean(alt_nba$PTS)
+sd(alt_nba$PTS)
+```
+The mean of total points is 900.43. The standard deviation is 478.65.
+
+(4.c)
+```{r}
+ggplot(alt_nba, aes(x = PTS)) +
+  geom_histogram(color = "black", fill = "white")+
+  theme_bw()
+```
+
+(4.d)
+```{r}
+n_runs = 10000
+means_bs = rep(NA, n_runs)
+data_sample = alt_nba$PTS
+for (i in 1:n_runs) {
+  obs <- sample(1:nrow(alt_nba), replace = T)
+  means_bs[i] <- mean(data_sample[obs])
+}
+```
+
+(4.e)
+```{r}
+ggplot() + 
+  geom_histogram(aes(x = means_bs, y = after_stat(density)), binwidth = 20, fill= "white", color="black") +
+  labs(x = "means", title = "Bootstrapped Means for An Alternative Sample") +
+  theme_minimal()
+```
+
+(4.f)
+```{r}
+quantile(means_bs, c(0.025, 0.975))
+mean_est = sum(data_sample) / length(data_sample)
+sd_samp = sqrt(mean_est^2 / length(data_sample))
+print(c(mean_est - 1.96 * sd_samp, mean_est + 1.96 * sd_samp))
+```
+The 95% confidence interval using the bootstrapped sampling distribution is (810.64, 997.17). The CI using the plug-in method is (723.95, 1076.91) and is larger than the first CI, covering more observations.
+
+(4.g)
+These CIs do not cover the population mean (523.43) of total points.
+
+(4.h)
+The mean of this alternate sample (900.43) does not fall within the middle 95% of the sampling distribution of population mean in problem 3, which is (482.31, 565.87).
+
+(4.i)
+```{r}
+sum(sam_means >= mean(alt_nba$PTS))
+sum(sam_means >= mean(alt_nba$PTS)) / length(sam_means)
+```
+0 observations of the population sampling distribution samples (problem 3c) have a mean as extreme (or more) than this sample mean. The proportion of samples that have more extreme means is 0/10000. The probability that we drew a sample this “bad” (or worse) is 0.
+
+(5.a)
+```{r}
+set.seed(123)
+uni_sam = runif(30, -100, 100)
+mean(uni_sam)
+```
+The mean is 14.48.
+
+(5.b)
+```{r}
+n_runs = 10000
+sd_bs = rep(NA, n_runs)
+for (i in 1:n_runs) {
+  obs <- sample(1:length(uni_sam), replace = T)
+  sd_bs[i] <- sd(uni_sam[obs])
+}
+mean(sd_bs)/sqrt(length(uni_sam))
+se_bs = sd_bs/sqrt(length(uni_sam))
+ggplot() + 
+  geom_histogram(aes(x = se_bs, y = after_stat(density)), binwidth = 0.5, fill= "white", color="black") +
+  labs(x = "sd", title = "A Histogram of the Estimated Standard Error") +
+  theme_minimal()
+```
+The estimated standard error is 10.4.
+
+(5.c)
+```{r}
+uni_sam = runif(100, -100, 100)
+n_runs = 10000
+sd_bs = rep(NA, n_runs)
+for (i in 1:n_runs) {
+  obs <- sample(1:length(uni_sam), replace = T)
+  sd_bs[i] <- sd(uni_sam[obs])
+}
+mean(sd_bs)/sqrt(length(uni_sam))
+se_bs = sd_bs/sqrt(length(uni_sam))
+ggplot() + 
+  geom_histogram(aes(x = se_bs, y = after_stat(density)), binwidth = 0.1, fill= "white", color="black") +
+  labs(x = "sd", title = "A Histogram of the Estimated Standard Error") +
+  theme_minimal()
+```
+The estimated standard error is 5.43. This histogram has a similar shape as the histogram of part (b). However, the spread is smaller. The mean is very different and smaller.
+
+(5.d)
+```{r}
+uni_sam = runif(500, -100, 100)
+n_runs = 10000
+sd_bs = rep(NA, n_runs)
+for (i in 1:n_runs) {
+  obs <- sample(1:length(uni_sam), replace = T)
+  sd_bs[i] <- sd(uni_sam[obs])
+}
+mean(sd_bs)/sqrt(length(uni_sam))
+se_bs = sd_bs/sqrt(length(uni_sam))
+ggplot() + 
+  geom_histogram(aes(x = se_bs, y = after_stat(density)), binwidth = 0.02, fill= "white", color="black") +
+  labs(x = "sd", title = "A Histogram of the Estimated Standard Error") +
+  theme_minimal()
+```
+The estimated standard error is 2.57 This histogram has a similar as the histogram of part (b) and (c). However, the spread is even smaller and the mean is very different.
+
+(5.e)
+```{r}
+sqrt((1/12*(100--100)^2)/30) # 10.54
+sqrt((1/12*(100--100)^2)/100) # 5.77
+sqrt((1/12*(100--100)^2)/500) # 2.58
+```
+They are very similar.
+
+(5.f)
+```{r}
+sam_mean = mean(se_bs)
+est_se = sqrt((1/12*(100--100)^2)/500)
+print(c(sam_mean - 1.96 * est_se, sam_mean + 1.96 * est_se))
+quantile(se_bs, c(0.025, 0.975))
+set.seed(123)
+uni_sam = runif(500, -100, 100)
+mean(uni_sam)
+```
+It is more likely for the plug-in method to covers the population mean than the 97.5th quantile.

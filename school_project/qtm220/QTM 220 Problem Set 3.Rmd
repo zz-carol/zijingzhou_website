@@ -1,0 +1,177 @@
+---
+title: "QTM 220 Problem Set 3"
+author: "Carol Zhou"
+date: "2023-10-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+Least Squares:
+Please see the other pdf submitted on Canvas.
+
+Matrix Algebra
+(a)
+```{r}
+y = c(3, 2, 5, 7)
+x = c(0, 1, 1, 2)
+data = data.frame(y, x)
+tapply(data$y, data$x, mean)
+```
+The sub-sample means of y when x is 0, 1, and 2 are 3, 3.5, and 7 respectively.
+
+(b)
+```{r}
+lm(data$y ~ data$x)
+```
+The intercept is 2.25, and the slope is 2. In this case, the intercept is not the sub-sample mean of y when x = 0.
+
+(c)
+```{r}
+y = matrix(c(3, 2, 5, 7), nrow = 4)
+x = matrix(c(1, 1, 1, 1, 0, 1, 1, 2), byrow = FALSE, nrow = 4, ncol = 2)
+solve(t(x)%*%x)%*%t(x)%*%y
+```
+This result is similar to part (b) but different from part (a). The intercept is 2.25, and the slope is 2.
+
+(d)
+```{r}
+proj = solve(t(x)%*%x)%*%t(x)
+N = nrow(x)
+weight_Xi = matrix(NA, N)
+for (i in 1:N) {
+  weight_Xi[i] = proj[2, i]
+}
+sum(weight_Xi*y)
+```
+(X'X)^-1X' is the projection matrix in multivariate regression. It has some good properties and is closely related to the idea of “leverage” or “influence” of an observation or a subgroup. The second row of (X'X)^-1X' is multiplied by Y to calculate the slope. The slope is 2 which is the same as what I found before.
+
+(e)
+```{r}
+x = c(0, 1, 1, 2)
+x_bar = mean(x)
+weight_tilde_x = matrix(NA, length(unique(x)))
+denominator = sum((x-x_bar)^2)
+for (i in 1:length(unique(x))) {
+  weight_tilde_x[i] = (length(x[x==(i-1)]) * ((i-1) - x_bar)) / denominator
+}
+weight_tilde_x
+weight_Xi
+```
+The weights when x = 0, x = 1, and x = 2 are -0.5, 0, and 0.5 respectively. These are the same as what I found before in part (d).
+
+Sleep and Stress
+```{r}
+sleep = read.csv("Sleep_Study.csv")
+```
+
+(a)
+```{r}
+ggplot(sleep, aes(Stress.Category, Sleep.Duration)) +
+  geom_jitter()
+```
+
+(b)
+```{r}
+tapply(sleep$Sleep.Duration, sleep$Stress.Category, mean)
+7.58-6.56
+table(sleep$Stress.Category)
+```
+The difference in mean sleep duration between those with low stress and high stress is 1.02. There are 166 people in the high-stress group and 208 people in the low-stress group.
+
+(c)
+```{r}
+n = table(sleep$Stress.Level)
+n
+n_low = n[1:3]
+n_high = n[4:6]
+subsample_mean = tapply(sleep$Sleep.Duration, sleep$Stress.Level, mean)
+subsample_mean
+mean_low = subsample_mean[1:3]
+mean_high = subsample_mean[4:6]
+weighted_mean_low = sum(mean_low * n_low / sum(n_low))
+weighted_mean_low
+weighted_mean_high = sum(mean_high * n_high / sum(n_high))
+weighted_mean_high
+```
+71, 70, 67, 46, 50, and 70 individuals fall into stress level 3, 4, 5, 6, 7, and 8 respectively. 0 individuals fall into stress level 1, 2, 9, and 10. 
+For the two versions of notation, please see the other pdf submitted on Canvas.
+The average sleep duration for stress level 3, 4, 5, 6, 7, and 8 is 8.23, 7.03, 7.48, 7.45, 6.47, and 6.05 respectively. For part (b), the calculated high and low stress means are 7.58 and 6.56 respectively. Here, it is shown that the “high” and “low” stress means are a weighted average of the finer group means.
+
+(d)
+```{r}
+ggplot(sleep, aes(Stress.Level, Sleep.Duration)) +
+  geom_point()
+```
+
+(e)
+```{r}
+# the average difference across all increments 
+diff_incr = 0
+for (i in 2:length(table(sleep$Stress.Level))) {
+  diff_incr = diff_incr + subsample_mean[i] - subsample_mean[i-1]
+}
+diff_incr / (length(table(sleep$Stress.Level))-1)
+# the scaled difference in means between the highest and lowest stress levels
+(mean(sleep$Sleep.Duration[sleep$Stress.Level==8]) - mean(sleep$Sleep.Duration[sleep$Stress.Level==3])) / (length(table(sleep$Stress.Level)) - 1)
+```
+The average difference across all increments is -0.43. The scaled difference in means between the highest and lowest stress levels is also -0.43, which is the same as the average difference across all increments.
+
+(f)
+```{r}
+
+proportions = as.vector(prop.table(table(sleep$Stress.Level)))
+subsample_mean = as.vector(tapply(sleep$Sleep.Duration, sleep$Stress.Level, mean))
+weighted_diff = 0
+for (i in 2:6) {
+  weighted_diff = weighted_diff + (subsample_mean[i] * proportions[i] - subsample_mean[i-1] * proportions[i-1])
+}
+weighted_diff
+```
+The weighted average difference is -0.43. 
+
+(g)
+```{r}
+least_squares = function(x, y) {
+  b = cov(x, y)/var(x)
+  a = mean(y) - b * mean(x)
+  result = matrix(NA, 2)
+  result[1] = a
+  result[2] = b
+  return(result)
+}
+least_squares(sleep$Stress.Level, sleep$Sleep.Duration)
+```
+The intercept is 9.09 and the slope is -0.36.
+
+(h)
+```{r}
+m1 = lm(sleep$Sleep.Duration ~ sleep$Stress.Level)
+m1
+ggplot(sleep, aes(Stress.Level, Sleep.Duration)) +
+  geom_point() +
+  geom_abline(intercept = m1$coefficients[1], slope = m1$coefficients[2], color="blue") + 
+  theme_minimal()
+```
+The intercept is 9.09 and the slope is -0.36. 
+
+(i)
+```{r}
+# calculate the w~(x)
+x = sleep$Stress.Level
+x_bar = mean(x)
+weight_tilde_x = matrix(NA, length(unique(x)))
+denominator = sum((x - x_bar)^2)
+for (i in 1:length(unique(x))) {
+  weight_tilde_x[i] = (length(x[x==(i+2)]) * ((i+2) - x_bar)) / denominator
+}
+subsample_mean = data.frame(tapply(sleep$Sleep.Duration, sleep$Stress.Level, mean))
+sum(weight_tilde_x * subsample_mean)
+```
+The slope is -0.36, which is the same value as calculated in part (h). The average difference and weighted average difference calculated in part (e) and (f) are both -0.43, which is different than this result. In part (e), the average difference is calculated by dividing the sum of the individual differences with the number of increments, which is 5 in this case and is used as weights. In part (f), the weighted average is calculated using proportions, which is used as weights. Here, the weights are calculated using the weight tilde formula on the slide derived from the least squares line equation. 
