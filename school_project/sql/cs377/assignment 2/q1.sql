@@ -1,0 +1,10 @@
+-- THIS CODE IS MY OWN WORK, IT WAS WRITTEN WITHOUT CONSULTING
+-- CODE WRITTEN BY OTHER STUDENTS.
+-- AUDREY POON, CAROL ZHOU 
+
+SET search_path TO dimeDB;
+
+SELECT DISTINCT name, party
+FROM Recipient 
+WHERE state='GA' AND seat='state:governor' AND cycle=2022
+ORDER BY name;

@@ -1,0 +1,207 @@
+---
+title: "QTM 150 Final Project"
+author: "Yash Dayal, Mario Sanchez del Campo, Carol Zhou, Alex Issokson"
+date: "12/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Part A
+###1.
+Our group would like to investigate the efficiency of Delta flights to 3 
+different airports in New York (JFK, LGA, and EWR) from Atlanta in 2019 and 2020.
+This information will be helpful for anyone who wants to choose which airport 
+they will get to the fastest. To calculate efficiency, we will use a 
+proxy value obtained by dividing distance by total air time.
+
+```{r}
+airport<-read.csv("Top5airportsUS.csv",stringsAsFactors=T)
+
+library(dplyr)
+library(ggplot2)
+
+str(airport)
+
+ATL_DL_NY<-airport %>%
+  filter(origin=="ATL") %>%
+  filter(carrier=="DL") %>%
+  filter(dest=="JFK"|dest=="LGA"|dest=="EWR") %>% 
+  mutate(efficiency=distance/air_time)
+```
+
+###2.
+Our response variable is efficiency.
+The distribution shape is slightly left skewed and almost normal.
+We chose efficiency because we believed that effiency would change with the year because of COVID-19 between 2019 and 2020.
+
+```{r}
+#A
+ggplot(ATL_DL_NY,aes(efficiency)) +
+  geom_histogram() + labs(x = "Efficiency", y = "Count", title = "Distribution of Efficiency of DL flights: ATL to NY Airports")
+
+#B
+summary(ATL_DL_NY$efficiency)
+
+#C
+boxplot(ATL_DL_NY$efficiency, ylab = "Efficiency (Miles per Minute)", main = "Efficiency across Delta Flights from ATL to NY")
+
+ # ggplot(ATL_DL_NY,aes(efficiency))+
+  #geom_boxplot() - if we make the boxplot through GGplot
+```
+
+###3.
+Lower bound = 6.311
+Upper bound = 8.783
+It seems like the year has an impact on the efficiency of the flight.
+Most of the outlier data seems to be from the year 2019 where majority of the delayed flights come from 2019.
+Most of the outlier data that exceeds the upper fence (meaning these flights were more efficient than normal) are from the year 2020.
+According to the prop.table, it seems like across both years 2020 and 2019, LGA receives the most amount of unusually fast or unusually slow flights. 
+
+```{r}
+LeftFence = 7.238-1.5*(7.856-7.238)
+RightFence = 7.856+1.5*(7.856-7.238)
+
+unusual<-ATL_DL_NY %>%
+  filter(efficiency<=LeftFence|efficiency>=RightFence)
+
+ggplot(unusual,aes(dest,efficiency))+
+  geom_jitter()
+
+table(droplevels(unusual$dest),unusual$year)
+prop.table(table(droplevels(unusual$dest),unusual$year))
+```
+
+###4.
+Our main explanatory variable is destination.
+
+A) Given our setup, we wanted to see which NY airport destination would be the 
+fastest/most efficient.
+
+B) Destination almost perfectly determines distance, and distance in turn 
+determines air time, and both of these determine our proxy value of efficiency.
+
+###5.
+There are no unusual observations. If we do consider the number of flights to JFK to be an outlier, because the number of to JFK flights is smaller, there would be no noticeable change in the overall outcome. Or rather, 
+We see values on each of the extremes of the observations
+but as far as we have inquired there does not appear
+to be a systematic cause for them that would justify 
+their exclusion from our analysis. Of course, we 
+should mention that 2020 has less flights overall than
+2019 because of COVID-19, so these flights might 
+introduce more noise due to their smaller sample size
+but overall the true values are expected to remain the same.
+```{r #5}
+table(droplevels(ATL_DL_NY$dest))
+table(droplevels(ATL_DL_NY$dest),ATL_DL_NY$year)
+```
+
+###6. 
+
+```{r}
+ggplot(ATL_DL_NY,aes(dest,efficiency))+
+  geom_boxplot(aes(color=dest))+
+  labs(x="Destination",y="Efficiency (Miles per Minute)", color="Destination"
+       ,title="Figure 1: Efficiency by Destination")
+```
+
+###7.
+The box plot shows that while the medians are all very similar, the median for 
+LGA is the highest, possibly indicating that it has the highest average 
+efficiency. More evidence pointing towards this possibility is that LGA has 
+more flights than both EWR and JFK. Similarly, JFK has the lowest median.
+
+##Part B
+###1.
+The second explanatory variable is year. Given that COVID-19 created all sorts
+of trouble for the airplane industry (such as in the form of delays, or 
+cancellations), we wanted to see if it affected our result of efficiency in any way.
+2020 possibly has higher efficiency than 2019 since less people travel.
+
+###2.
+
+```{r}
+ATL_DL_NY2<-ATL_DL_NY %>%
+  group_by(year,dest) %>%
+  summarize(avg_efficiency=mean(efficiency,na.rm=T)) %>%
+  arrange(desc(avg_efficiency))
+
+summary(ATL_DL_NY2)
+
+ATL_DL_NY2
+
+ggplot(ATL_DL_NY2,aes(dest,avg_efficiency,group=factor(year)))+
+  geom_col(aes(fill=factor(year)),position="dodge")+
+  geom_text(
+    aes(label=substr(avg_efficiency,1,4)),
+    position=position_dodge(0.9),
+    vjust=0) +
+  labs(x="Destination",y="Average Efficiency (Miles per Minute)",fill="Year"
+       ,title="Figure 2: Efficiency by Destination According to Year")
+
+```
+
+###3.
+This bar plot is much more useful than the box plot in part A because it
+clearly compares the average efficiency across airports, and then by year too.
+As suspected, in both 2019 and 2020, LGA has the highest efficiency, even if
+only by 0.1 and 0.08 in 2019 and 2020, respectively. While these results may not be practically significant (we would need to run a further statistical analysis to find out), the data suggests that LGA has the highest efficiency. This pattern also clearly
+shows that the efficiency is slightly higher by year as each airport's
+efficiency increased by at least 0.22 units.
+
+###4.
+This bar plot could be improved by accounting for delays. According to this plot
+, LGA may be the most efficient, but given they
+have more flights than the other airports, there could be many more delays.
+Furthermore, adding delays would help increase the gap between each of the
+averages, thus demonstrating a more reliable result. Any early arrival is
+shown by a negative delay in the dataset. Also, another alternative proxy 
+value for efficiency could be calculating the delays per airport and relating
+that to the number of flights.
+
+###5.
+This plot factors delays into account. We split the data into delayed and not delayed and then analyzed efficiency across year and airport.
+```{r}
+ATL_DL_NY$delay<-factor(ATL_DL_NY$dep_delay,levels=c("Not Delayed","Delayed"))
+ATL_DL_NY$delay[ATL_DL_NY$dep_delay<=0]<-"Not Delayed"
+ATL_DL_NY$delay[ATL_DL_NY$dep_delay>0]<-"Delayed"
+table(ATL_DL_NY$delay)
+
+#Removes the observations that have NAs.
+sum(is.na(ATL_DL_NY$delay))
+ATL_DL_No_NA<-ATL_DL_NY %>%
+  filter(delay=="Not Delayed"|delay=="Delayed")
+
+sum(is.na(ATL_DL_No_NA$delay))
+
+ATL_DL_NY3<-ATL_DL_No_NA %>%
+  group_by(year,dest,delay) %>%
+  summarize(avg_efficiency=mean(efficiency,na.rm=T)) %>%
+  arrange(desc(avg_efficiency))
+
+ATL_DL_NY3
+
+ggplot(ATL_DL_NY3,aes(dest,avg_efficiency,group=factor(year))) +
+  geom_col(aes(fill=factor(year)),position="dodge") +
+  geom_text(
+    aes(label=substr(avg_efficiency,1,4)),
+    position=position_dodge(0.9),
+    vjust=0) +
+  facet_wrap(~delay) +
+  labs(x="Destination",y="Average Efficiency (Miles per Minute)",fill="Year"
+       ,title="Figure 3: Efficiency by Destination According to Year and Delay")
+```
+
+###6. 
+Through this exploratory analysis, we have learned a few things. First, we
+have learned that flying to LGA from Atlanta is most likely to have the highest
+efficiency. Comparing LGA to the other airports, it has the highest efficiency
+in both 2019 and 2020. This is shown to be true with and without delays. Rather,
+we can note that in 2020, LGA has a higher efficiency with delays, which shows
+that they are more often early than late. Second, it is clear that flights in
+2020 have a higher efficiency than those in 2019. Lastly, we can see that with
+delays, flights in 2019 are less efficient than those without delays while
+flights in 2020 are more efficient with delays than those without (again,
+implying that they are often early).

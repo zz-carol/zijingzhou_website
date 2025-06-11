@@ -1,0 +1,259 @@
+---
+title: "QTM 220 Problem Set 1"
+author: "Carol Zhou"
+date: "2023-09-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+###########################
+Mean and SD Review
+
+(1)
+```{r}
+# (i)
+x = c(0, 20, 40, 50, 60, 80, 100)
+sd(x) # 34.1565
+# (ii)
+x = c(0, 48, 49, 50, 51, 52, 100)
+sd(x) # 28.89637
+# (iii)
+x = c(0, 1, 2, 50, 98, 99, 100)
+sd(x) # 49.0068
+```
+The spread of the third set of numbers is the biggest (sd = 49), while the spread of the second set of numbers is the smallest (sd =  29).
+
+(2.i)
+```{r}
+a = c(1, 3, 4, 5, 7)
+b = c(6, 8, 9, 10, 12)
+mean(a) # 4
+sd(a) # 2.236068
+mean(b) # 9
+sd(b) # 2.236068
+```
+The difference between the corresponding numbers of list (i.b) and those of list (i.a.) is 5. This relationship carries over to the means since the mean of list (i.b) subtracting 5 gives the mean of list (i.a). But this relationship does not affect the spread of list(i.b). Thus, the standard deviations are the same for both lists.
+
+(2.ii)
+```{r}
+a = c(1, 3, 4, 5, 7)
+b = c(3, 9, 12, 15, 21)
+mean(a) # 4
+sd(a) # 2.236068
+mean(b) # 12
+sd(b) # 6.708204
+```
+If multiplying each number of list (ii.a) by 3, the result equals the corresponding number of list (ii.b). This relationship carries to the means and standard deviations since if the mean and standard deviation of list (ii.b) are multiplied by 3, they equal to those of list (ii.a).
+
+(2.iii)
+```{r}
+a = c(5, -4, 3, -1, 7)
+b = c(-5, 4, -3, 1, -7)
+mean(a) # 2
+sd(a) # 4.472136
+mean(b) # -2
+sd(b) # 4.472136
+```
+If multiplying each number of list (iii.a) by -1, the result equals the corresponding number of list (iii.b). This relationship carries to the means since the mean of list (iii.a) is 2 and that of list (iii.b) is -2. The spread is not affected by the negative sign because the distance to the mean is the same. So the standard deviations are the same among the two lists. 
+
+(3)
+The standard deviation cannot be negative because the formula is $$ \sqrt{\frac{\sum{(x_i-u)^2}}{N}}
+$$. Since the difference between xi and u is squared, it can only be positive. Moreover, the square-root at the end also does not allow the number to be negative. 
+
+(4)
+Yes. When the sample distribution is heavily skewed, the variation is high, causing the standard deviation to be greater than the mean. For example, x = c(1, 2, 3, 4, 200). The mean is 42, and the standard deviation is 88.
+```{r}
+x = c(1, 2, 3, 4, 200)
+mean(x)
+sd(x)
+```
+
+(5.a) 
+The approximate mean of Histogram 1 is 0.7. The approximate mean of Histogram 2 is 0.3. The approximate mean of Histogram 3 is 0.5.
+
+(5.b) 
+The description of Histogram 1 is "the median is larger than the mean." The description of Histogram 2 is "the median is less than the mean." The description of Histogram 3 is "the median is about equal to the mean."
+
+(5.c)
+The standard deviation of Histogram 2 is around 0.15.
+
+(5.d)
+False. Although Histogram 1 is left-skewed and Histogram 2 is right-skewed, the shapes of their distributions are similar but mirrored. Their spreads are also similar: the x values of Histogram 1 range from 0.05 to 1, and the x values of Histogram 2 range from 0 to 0.95. There is not enough information to conclude that the standard deviation for Histogram 1 is a lot smaller than for Histogram 2.
+
+###########################
+Supreme Court Justices
+```{r}
+emdata = read.csv("EMdata.csv")
+```
+
+(a)
+```{r}
+# hist(emdata$CLlib, breaks = 20, xlim = c(0, 100))
+ggplot(emdata, aes(x = CLlib)) + 
+  geom_histogram(color = "black", fill="white", binwidth = 5) + 
+  theme_bw() +
+  xlim(0, 100)
+```
+
+(b)
+```{r}
+mean(emdata$CLlib) # 50.86296
+median(emdata$CLlib) # 43.7
+```
+- The mean is the average percentage of liberal votes for the justices in this data set. 
+- The median is the middle percentage of liberal votes for the justices in this data set. Half of the observations are smaller than the median and half of them are larger. 
+- The mean (50.86%) is larger than the median (43.7%), suggesting that some justices have really high liberal percentages.
+
+(c)
+```{r}
+standard_deviation = function(data) {
+  sum = 0
+  for (i in data) {
+    sum = sum + (i - mean(data))^2
+  }
+  result = sqrt(sum/length(data))
+  return(result)
+}
+standard_deviation(emdata$CLlib) # 20.50173
+```
+The standard deviation is 20.50.
+
+(d)
+```{r}
+rep = subset(emdata, party == 0)
+dem = subset(emdata, party == 1)
+mean(rep$CLlib) # 44.11333
+median(rep$CLlib) # 41.7
+mean(rep$CLlib) - median(rep$CLlib) # 2.413333
+mean(dem$CLlib) # 59.3
+median(dem$CLlib) # 49.25
+mean(dem$CLlib) - median(dem$CLlib) # 10.05
+# hist(rep$CLlib, breaks = 20, xlim = c(0, 100))
+ggplot(rep, aes(x = CLlib)) + 
+  geom_histogram(color = "black", fill="white", binwidth = 5) + 
+  theme_bw() +
+  xlim(0, 100) +
+  labs(title = "Republican-nominated justice")
+# hist(dem$CLlib, breaks = 20, xlim = c(0, 100))
+ggplot(dem, aes(x = CLlib)) + 
+  geom_histogram(color = "black", fill="white", binwidth = 5) + 
+  theme_bw() +
+  xlim(0, 100) +
+  ylim(0, 3) + 
+  labs(title = "Democratic-nominated justices")
+```
+- The mean and median of the Republican party are 44.11% and 41.7% respectively. The mean and median of the Democratic party are 59.3% and 49.25% respectively. 
+- The mean is the average percentage of liberal votes for each party justices. The median is the middle percentage of liberal votes for each party justices.
+- The mean among the Democratic justices is larger, implying that some justices in the Democratic party have really high liberal percentages.
+- The median among the Democratic justices is also larger, suggesting overall the Democratic justices have higher percentages than the Republican justices.
+- The difference among the Democratic justices is larger (10.05% vs. 2.41%). This means there is more variation in the percentages of the Democratic justices, while the percentages of the Republican justices are more consistent. 
+
+(e)
+```{r}
+ggplot(emdata, aes(party, CLlib)) +
+  geom_point() +
+  geom_smooth(method=lm, color="red") +
+  theme_bw()
+```
+
+(f)
+```{r}
+sd(rep$CLlib) # 17.76485
+sd(dem$CLlib) # 22.14177
+```
+The standard deviation of the Republican party is 17.76. The standard deviation of the Democratic party is 22.14.
+
+(g)
+```{r}
+mean(emdata$ur) # 0.1111111
+```
+The mean is 0.11. This means that most of the justices are not a member of an under-represented group.
+
+(h)
+```{r}
+prop.table(table(rep$ur)) # 13.3%
+prop.table(table(dem$ur)) # 8.3%
+```
+13.3% of Republican justices are members of an under-represented group. 8.3% of Democratic justices are members.
+
+(i)
+```{r}
+ggplot(emdata, aes(party, ur)) +
+  geom_jitter() +
+  geom_smooth(method=lm, color="red") +
+  theme_bw()
+lm(emdata$ur ~ emdata$party)
+```
+- The intercept is 0.13, and the slope is -0.05. 
+- The intercept is the y value when x is 0. This means when a justice is a Republican (x = 0), the person is more likely to not be a member of an under-represented group since 0.13 is closer to 0. 
+- The slope is the change in y over the change in x. Since the slope is negative, this means it is more likely for a Republican justice to be a member of an under-represented group than for a Democratic justice.
+
+###########################
+California CPS Income
+```{r}
+cps = read.csv("California_CPS_income.csv")
+```
+
+(a)
+```{r}
+mean(cps$income) # 135406
+sd(cps$income) # 137849.4
+```
+The mean income is $135406. The standard deviation is 137849.4.
+
+(b)
+```{r}
+ggplot(cps, aes(x = income)) + 
+  geom_histogram(color = "black", fill="white", binwidth = 100000) + 
+  theme_bw()
+```
+
+(c)
+We would expect 5% (2.25% of each end of the normal distribution) of households to be outside 2 standard deviations from the mean.
+
+(d)
+We would expect at most 25% (1/2^2 = 1/4) of the household to be outside of 2 standard deviations from the mean.
+
+(e)
+```{r}
+upper = mean(cps$income) + sd(cps$income)*2
+sum(cps$income >= upper) # 70
+# Because the standard deviation is larger than the mean, I only calculated the right-hand side of the distribution since there won't be data outside of the 2-sd range on the left-hand side.
+nrow(cps) * 0.05 # 112.9
+nrow(cps) * 0.25 # 564.5
+```
+70 observations in the data fall outside of this 2-sd range. The Normal method is closer to the actual data from part (c). This might be the case because Chebyshev's inequality is more general. It provides the maximum probability that the data will fall outside of the 2-sd range. z-score is more specific and conservative. One is inequality, while the other is equality.
+
+###########################
+Matrix Algebra Review and Least Squares
+
+(a)
+```{r}
+y = matrix(c(1, 1, 0, 1), nrow = 4)
+x = matrix(c(1, 0, 0, 1), nrow = 4)
+data = data.frame(y, x)
+tapply(data$y, data$x, mean)
+```
+When x = 0, the sub-sample mean of y is 0.5. When x = 1, the mean is 1.
+
+(b)
+```{r}
+lm(data$y ~ data$x)
+```
+- The intercept is 0.5. When x = 0, the y value is 0.5, suggesting that it is equally likely that for the y value to be 0 or 1 when x = 0. 
+- The slope is also 0.5. Since the slope is positive, it means it is more likely for the y value to be 1 than being 0 when x = 1.
+
+(c)
+```{r}
+y = matrix(c(1, 1, 0, 1), nrow = 4)
+x = matrix(c(1, 1, 1, 1, 1, 0, 0, 1), byrow = FALSE, nrow = 4, ncol = 2)
+solve(t(x)%*%x)%*%t(x)%*%y
+```
+The results are the same for part (b) but are different from part (a). In part (a), the mean of y when x = 1 is 1, which is different than 0.5.

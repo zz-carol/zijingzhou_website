@@ -1,0 +1,203 @@
+---
+title: "QTM 220 Problem Set 6"
+author: "Carol Zhou"
+date: "2023-12-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(stargazer)
+library(tidyverse)
+library(sandwich)
+```
+
+California CPS Revisited
+```{r}
+cal.cps = read.csv("California_CPS_degrees.csv")
+```
+
+(a)
+```{r}
+lm1 = lm(income ~ education + age, data = cal.cps)
+stargazer(lm1, type = "text", title = "Regress income on education and age")
+```
+
+(b)
+```{r}
+X = data.matrix(data.frame(constant = rep(1, nrow(cal.cps)), education = cal.cps$education, age = cal.cps$age))
+Y = cal.cps$income
+solve(t(X)%*%X)%*%t(X)%*%Y
+```
+The resulting betas are the same as my lm results.
+
+(c)
+```{r}
+pre.val = predict(lm1)
+res = residuals(lm1)
+plot(pre.val, res)
+```
+The variance of residuals is much larger around 200,000 than around 50,000, creating a cone shape. This means the residuals have unequal variance, which means the errors are heteroskedastic.
+
+(d)
+```{r}
+sqrt(diag(sandwich(lm1)))
+```
+
+(e)
+```{r}
+std.err = solve(t(X)%*%X)%*%t(X)%*%diag(res^2)%*%X%*%solve(t(X)%*%X)
+sqrt(diag(std.err))
+```
+
+(f)
+```{r}
+n_ite = 10000
+beta0 = rep(NA, n_ite)
+beta1 = rep(NA, n_ite)
+beta2 = rep(NA, n_ite)
+n_sample = nrow(cal.cps)
+for(i in 1:n_ite){
+  index_bs = sample(1:n_sample, n_sample, T)
+  df_bs = cal.cps[index_bs,]
+  lm2 = lm(income ~ education + age, data = df_bs)
+  beta0[i] = lm2$coefficients[1]
+  beta1[i] = lm2$coefficients[2]
+  beta2[i] = lm2$coefficients[3]
+}
+sd(beta0)
+sd(beta1)
+sd(beta2)
+```
+The standard errors for beta0, beta1, and beta2 are 26053.66, 1056.522, and 727.4453 respectively.
+
+(g)
+The standard errors calculated in part (a) for constant, education, and age are 24024.530, 889.894, and 694.354 respectively. The standard errors calculated in part (e) for constant, education, and age are 25825.2054, 1057.6145, and 719.3256 respectively. They are different because R uses classical variance estimation, in which $V[\hat{\beta}]=\sigma^2[E[X^TX]]^{-1}$ and it's very different than the equation of the robust estimator. Moreover, the robust estimators incorporate non-constant variance into the formula of standard errors. As a result, the assumption of constant variance and heteroscedasticity is accounted. The standard errors calculated in part (e) are closer to what I estimated from the bootstrap than the standard errors calculated in part (a).
+
+Causal Warm Up: Bone Density
+```{r}
+bone = data.frame(age = c(rep("old", 8), rep("young", 4)), 
+                  treatment = c(1,0,1,0,1,0,0,0,0,1,0,1), 
+                  t.score = c(-2,-3,-2,0,-1,0,-2,0,0,1,-1,1.5))
+```
+
+(a)
+```{r}
+sum(bone$age == "young" & bone$treatment == 1) / sum(bone$age == "young") * 100
+sum(bone$age == "old" & bone$treatment == 1) / sum(bone$age == "old") * 100
+```
+The probability of receiving treatment for the young is 50%. The probability of receiving treatment for the old is 37.5%.
+
+(b)
+```{r}
+mean(bone$t.score[bone$age == "young" & bone$treatment == 1]) - mean(bone$t.score[bone$age == "young" & bone$treatment == 0])
+mean(bone$t.score[bone$age == "old" & bone$treatment == 1]) - mean(bone$t.score[bone$age == "old" & bone$treatment == 0])
+```
+The treatment effect of the calcium supplement on bone density among the young is 1.75. The treatment effect of the calcium supplement on bone density among the old is -0.67. 
+
+(c)
+```{r}
+4/12 * (mean(bone$t.score[bone$age == "young" & bone$treatment == 1]) - mean(bone$t.score[bone$age == "young" & bone$treatment == 0])) + 8/12 * (mean(bone$t.score[bone$age == "old" & bone$treatment == 1]) - mean(bone$t.score[bone$age == "old" & bone$treatment == 0]))
+```
+The average of these treatment effects is 0.139.
+
+(d)
+```{r}
+(mean(bone$t.score[bone$age == "young" & bone$treatment == 1]) - mean(bone$t.score[bone$age == "young" & bone$treatment == 0])) + (mean(bone$t.score[bone$age == "old" & bone$treatment == 1]) - mean(bone$t.score[bone$age == "old" & bone$treatment == 0]))
+```
+If you ignored the blocked randomization, my estimate would be 1.083.
+
+(e)
+```{r}
+bone$age2 = ifelse(bone$age == "old", 1, 0)
+lm3 = lm(t.score ~ treatment, data = bone)
+stargazer(lm3, type = "text", title = "Additive Model")
+lm4 = lm(t.score ~ age + treatment + age2*treatment, data = bone)
+stargazer(lm4, type = "text", title = "Interactive Model")
+```
+The additive model corresponds with the estimate of the average treatment effect, while the interactive model corresponds with the estimate of the average treatment effect on the treated and on the control.
+![](1.jpeg)
+
+Neto and Cox
+```{r}
+neto.cox = read.csv("netocox.csv")
+```
+
+(a)
+```{r}
+mean(neto.cox$ENETH[neto.cox$RUNOFF==1])
+mean(neto.cox$ENETH[neto.cox$RUNOFF==0])
+```
+![](2.jpeg)
+The number of effective ethnic groups across treatment and control countries are balanced.
+
+(b)
+```{r}
+lm(ENPRES ~ RUNOFF + ENETH, data = neto.cox)
+```
+The Average Partial Derivative (APD) of this model is 0.63 since the slope of RUNOFF is APD.
+
+(c)
+```{r}
+lm5 = lm(ENPRES ~ RUNOFF + ENETH + RUNOFF * ENETH, data = neto.cox)
+mean(lm5$coefficients[2] + lm5$coefficients[4]*neto.cox$ENETH)
+```
+The Average Partial Derivative (APD) of this model is 0.67.
+
+(d)
+```{r}
+neto.cox = neto.cox %>%
+  mutate(y0 = lm5$coefficients[1] + lm5$coefficients[3]*ENETH, 
+         y1 = lm5$coefficients[1] + lm5$coefficients[2] + lm5$coefficients[3]*ENETH + lm5$coefficients[4]*ENETH)
+# ATE
+mean(neto.cox$y1 - neto.cox$y0)
+# ATT
+mean(neto.cox$y1[neto.cox$RUNOFF==1] - neto.cox$y0[neto.cox$RUNOFF==1])
+# ATC
+mean(neto.cox$y1[neto.cox$RUNOFF==0] - neto.cox$y0[neto.cox$RUNOFF==0])
+```
+The ATE is 0.67. The ATT is 0.79. The ATC is 0.55. You could recover ATE since ATE = APD. ATT equals to APD with only using ENETH values in which RUNOFF = 1. ATC equals to APD with only using ENETH values in which RUNOFF = 0. 
+![](3.png)
+
+(e)
+```{r}
+lm6 = lm(ENPRES ~ RUNOFF + ENETH + I(ENETH^2) + RUNOFF*ENETH + RUNOFF*I(ENETH^2), data = neto.cox)
+mean(lm6$coefficients[2] + lm6$coefficients[5]*neto.cox$ENETH + lm6$coefficients[6]*neto.cox$ENETH^2)
+```
+The Average Partial Derivative of this model is 0.99.
+
+(f)
+```{r}
+neto.cox = neto.cox %>%
+  mutate(y0_pol = lm6$coefficients[1] + lm6$coefficients[3]*ENETH + lm6$coefficients[4]*ENETH^2, 
+         y1_pol = lm6$coefficients[1] + lm6$coefficients[2] + lm6$coefficients[3]*ENETH + lm6$coefficients[4]*ENETH^2 + lm6$coefficients[5]*ENETH + lm6$coefficients[6]*ENETH^2)
+# ATE
+mean(neto.cox$y1_pol - neto.cox$y0_pol)
+# ATT
+mean(neto.cox$y1_pol[neto.cox$RUNOFF==1] - neto.cox$y0_pol[neto.cox$RUNOFF==1])
+# ATC
+mean(neto.cox$y1_pol[neto.cox$RUNOFF==0] - neto.cox$y0_pol[neto.cox$RUNOFF==0])
+```
+The ATE is 0.99. The ATT is 0.53. The ATC is 1.45. You could recover ATE since ATE = APD. ATT equals to APD with only using ENETH values in which RUNOFF = 1. ATC equals to APD with only using ENETH values in which RUNOFF = 0. 
+![](4.png)
+
+Menopausal Hormone Therapy
+
+(a)
+![](5.png)
+
+(b)
+A potential omitted variable from the Kim et al. study is having a family history of NDDs. Omitting that variable bias their estimate of the treatment effect of hormone therapy. If an individual has a family history of NDDs, they are more likely to receive treatments for prevention than people who don't have a family history. According to the formula from class, since the treatment, D, is positively correlated to family history, the $\beta_2$ and $\sum_{i = 1}^{n}D_iz_i$ terms will be positive, making the whole term to be positive. Thus, I think their estimate might be high.
+![](6.jpeg)
+
+(c)
+There is not a concern about omitted variable bias in the WHI study because it is a randomized controlled trial, meaning the treatment, Di, is randomized and is not correlated with z and any potential omitted variables. That indicates $\sum_{i = 1}^{n}D_iz_i$ is 0, and according to the formula from class, the whole $\beta_2$ term will be 0. This leaves $\beta_1$ to be the only term in the result, and I think their estimate will be accurate.
+![](7.jpeg)
+
+(d)
+My major takeaways from the case study are that nowadays menopausal treatment for women is not the best and doctors and medical schools should be more informed about menopausal hormone therapy and how to treat women with menopause. According to the recent NYT magazine about menopausal hormone therapy, it is clear that the author was not happy about the current menopausal treatment given by doctors, and she was critical of the WHI study having a lot of flaws. It is true that today, women in menopause are not treated rightfully because there is a lack of prescription options as stated by JoAnn Manson and Andrew Kaunitz. Moreover, they also mentioned that most primary care residency programs in the United States don’t train students in women’s health and menopause management. Before the WHI study was halted, medical students were told to just prescribe the hormone therapy for women in menopause. After the study was halted, medical schools did not know what to do and teach, so they simply did not do anything. This makes the general healthcare community be more uneducated about menopause management. 
+
+However, when doctors are prescribing, they should not base their decision solely on the WHI study. Though the WHI study is seen as the gold standard, the population it targeted and the questions it asked could be inapplicable depending on what patients the doctors are seeing. The WHI's response to the NYT's piece states that the study looked for a particular set of women and was about the effect of long-term use of hormone therapy. It does not conclude anything about the effect of short-term use of hormone therapy with the least amount possible. Thus, the results may not be applicable to younger women. And when doctors are making medical guidelines, they should also look at other studies, such as the Kim et al. study. In short, I think scientific communication should be improved when releasing research results, and the medical fields should put more emphasis on women's health in general.

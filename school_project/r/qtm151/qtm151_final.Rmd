@@ -1,0 +1,153 @@
+---
+title: "QTM151_FinalProject"
+author: "Carol, Heesue, Gerardo"
+date: "4/24/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Research Question:
+How does the facility type or location of a prison in the U.S impact the proportion of COVID-related deaths among officers and inmates? 
+
+Background:
+We decided to look at the data The New York Times collected for the coronavirus infections and deaths in prisons in the United States from March 2020 until the end of March 2021. The dataset also contains information about facilities (types, locations, and populations) and numbers of infected cases and deaths for both inmates and officers for a total of 2,805 facilities.
+
+Link to the dataset and its description: https://github.com/nytimes/covid-19-data/tree/master/prisons
+
+Importing the data:
+```{r}
+prisons<-read.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/prisons/facilities.csv")
+```
+
+Part 1: How does the facility type of a prison impact the proportion of COVID-related deaths among officers and inmates?
+
+Cleaning up the data:
+```{r}
+library(tidyverse)
+
+#Combine categories together as either Federal or State
+facilities1 <- prisons %>%
+  mutate(inmate_death_prop_perc = 100 * (total_inmate_deaths / total_inmate_cases)) %>%
+  drop_na(inmate_death_prop_perc) %>%
+  filter(inmate_death_prop_perc < 100) %>%
+  mutate(yonkers = fct_recode(facility_type,
+                              "Federal" = "Detention center",
+                              "Federal" = "Federal halfway house",
+                              "Federal" = "Federal prison",
+                              "State" = "Jail",
+                              "State" = "Juvenile detention at jail",
+                              "State" = "Low-security work release",
+                              "State" =  "State halfway house",
+                              "State" = "State juvenile detention",
+                              "State" = "State prison",
+                              "State" = "State rehabilitation center",
+                              "State" = "State work camp",
+                              "State" =  "State facility",
+                              "Federal" = "Reservation jail",
+                              "Federal" = "U.S. Marshalls")) %>%
+  group_by(yonkers) %>%
+  summarise(fatality = mean(inmate_death_prop_perc))
+```
+
+Creating the graph:
+```{r}
+facilities1 %>%
+  ggplot(aes(x = yonkers, y = fatality, fill = yonkers)) +
+           geom_bar(stat = "identity") +
+  ylab("Fatality Percentage") +
+  xlab("Facility Type") +
+  ggtitle("Fatality Rate in Infected Inmates Across Facility Types") +
+  guides(fill = guide_legend(title = "Facility Type"))
+#Both types of prisons have very low fatality rates. Federal prisons have a slightly higher inmates fatality rate.
+```
+
+Note:
+We tried to calculate the COVID-19 fatality rate for officers. But since most of the rate is 0 or infinity, we chose not to include the code and graph here.
+
+Part 2: How does the location of a prison impact the proportion of COVID-related deaths among officers and inmates?
+
+Cleaning up the data:
+```{r}
+#Re-code the facility_state variable
+pstate1<-prisons%>%
+  mutate(facility_state1=fct_recode(facility_state,"kentucky"="Kentucky"))
+
+#Group by the variable facility_state1 and Summarize
+pstate2<-pstate1%>%
+  select(facility_state1,latest_inmate_population,total_inmate_cases,
+         total_inmate_deaths,total_officer_cases,total_officer_deaths)%>%
+  group_by(facility_state1)%>%
+  summarize(total_latest_inmate_population=sum(latest_inmate_population,na.rm=T),
+            total_inmate_cases1=sum(total_inmate_cases,na.rm=T),
+            total_inmate_deaths1=sum(total_inmate_deaths,na.rm=T),
+            total_officer_cases1=sum(total_officer_cases,na.rm=T),
+            total_officer_deaths1=sum(total_officer_deaths,na.rm=T))
+
+#Drop unnecessary rows in the data frame pstate2
+pstate3<-pstate2[!(pstate2$facility_state1==""|pstate2$facility_state1=="Puerto Rico"),]
+
+#Create new variables--COVID fatality percentages for inmates and officers
+pstate4<-pstate3%>%
+  mutate(proportion_inmate_cases=(total_inmate_cases1/total_latest_inmate_population)*100,
+         proportion_inmate_deaths=(total_inmate_deaths1/total_inmate_cases1)*100,
+         proportion_officer_deaths=(total_officer_deaths1/total_officer_cases1)*100)
+
+#Import the state's latitude and longitude data
+usstates<-read.csv("statelatlong.csv")
+
+#Rename the city variable to facility_state1
+usstates1<-rename(usstates,facility_state1=City)
+
+#Keep only needed variables
+usstates2<-usstates1%>%
+  select(Latitude,Longitude,facility_state1)
+
+#Join pstate4 and usstate2 
+pstate<-inner_join(pstate4,usstates2,by="facility_state1")
+```
+
+Creating the maps:
+```{r}
+library(maps)
+library(ggmap)
+library(plotly)
+
+us<-c(left=-125,bottom=25.75,right=-67,top=49)
+map<-get_stamenmap(us,zoom=5,maptype="toner-lite")
+
+#The U.S. map of inmate's cases prportion
+stateplot1<-ggmap(map)+geom_point(data=pstate,aes(x=Longitude,y=Latitude,
+                                                  group=facility_state1,
+                                                  color=proportion_inmate_cases,
+                                                  size=proportion_inmate_cases),na.rm=T)+
+  labs(x="",y="",title="The Percentage of Inmates Infection in Each State")+
+  scale_color_gradient(name="Inmate's Infection Percentage (%)")
+ggplotly(stateplot1)
+#Most of the states have infection rates of around 70%. 
+
+#The U.S. map of inmate's fatality
+stateplot2<-ggmap(map)+geom_point(data=pstate,aes(x=Longitude,y=Latitude,
+                                                  group=facility_state1,
+                                                  color=proportion_inmate_deaths,
+                                                  size=proportion_inmate_deaths),na.rm=T)+
+  scale_color_gradient(low="red",high="purple",name="Inmate's Fatality Percentage (%)")+
+  labs(x="",y="",title="The Percentage of Inmates COVID-19 Fatality in Each State")
+ggplotly(stateplot2)
+#Most of the states have low inmates fatality rates. The highest rate is 2.3%.
+
+#The U.S. map of officer's fatality
+stateplot3<-ggmap(map)+geom_point(data=pstate,aes(x=Longitude,y=Latitude,
+                                                  group=facility_state1,
+                                                  color=proportion_officer_deaths,
+                                                  size=proportion_officer_deaths),na.rm=T)+
+  scale_color_gradient(low="green",high="blue",name="Officer's Fatality Percentage (%)")+
+  labs(x="",y="",title="The Percentage of Officers COVID-19 Fatality in Each State")
+ggplotly(stateplot3)
+#Most of the states have very low officers' fatality rates. There is an "outlier." The value is for West Virginia, and there are actually only 2 officers who died out of 7 officers infected.
+```
+
+Conclusion:
+We find no significant relationships between facility type and fatality rate and no significant correlation between facility location and fatality rate.
