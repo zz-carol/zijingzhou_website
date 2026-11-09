@@ -1,0 +1,300 @@
+---
+title: "Sta 523 - Fall 2025 - Midterm 1"
+subtitle: "Due Wednesday, October 8th by 5:00 pm."
+author: Carol Zhou
+format: 
+  html:
+    self-contained: true
+---
+
+Before you start be sure to read through *all* of the rules and instructions in the `README.md`.
+
+<br/>
+
+### Data & Setup
+
+```{r message=FALSE}
+library(tidyverse)
+f1 = readRDS(file="data/f1.rds")
+library(gt)
+```
+
+-----
+
+### Task 1 - Tidy the data
+
+#### Write up
+
+The `f1` dataframe contains high-level information such as `raceName`, `round`, and `date`, and a nested `Results` list, where each entry represents a driver’s race result. To begin, I use the `hoist()` function to extract these top-level variables. Since each row in the final tidy dataset should represent a unique result for each driver, I then apply `unnest_longer()` on the `Results` column to expand it into multiple rows.
+
+Within each driver’s result, the `Driver` list includes `givenName` and `familyName`, which I will later combine into a single `driver` column using `mutate()`. Similarly, the constructor’s name is stored under the `Constructor` list as name. The variables `grid`, `positionText`, and `points` directly represent the driver’s starting position, finishing position, and earned points, respectively. I extract all these elements using a second `hoist()`.
+
+To clean the data, I use `mutate()` to ensure that: `round` and `start_position` are stored as integers, `date` is converted to the `Date` class, `finish_position` is numeric but replaced with `NA` for non-finishers (e.g., "D", "R", or "W"), and `points` is stored as an integer.
+
+Finally, I removed the unwanted columns `f1`, `driver_given`, `driver_family`, and `Results` to create the final tidy dataset `f1_tidy`.
+
+#### Code
+
+```{r task1}
+f1_tidy = tibble(f1) |>
+  # extract top-level variables from nested list
+  hoist(
+    f1,
+    race_name = "raceName",
+    round = "round", 
+    date = "date",
+    Results = "Results"
+  ) |>
+  # expand the Results list so each driver has its own row
+  unnest_longer(Results) |>
+  # extract driver, constructor, and race result details
+  hoist(
+    Results, 
+    driver_given = c("Driver", "givenName"),
+    driver_family = c("Driver", "familyName"),
+    constructor = c("Constructor", "name"),
+    start_position = "grid",
+    finish_position = "positionText",
+    points = "points"
+  ) |>
+  mutate(round = as.integer(round), date = as.Date(date), 
+         # combine driver’s given and family names
+         driver = paste(driver_given, driver_family), 
+         start_position = as.integer(start_position), 
+         # replace non-finish codes (D, R, W) with NA
+         finish_position = 
+           ifelse(finish_position %in% c("D", "R", "W"), NA, as.integer(finish_position)),
+         points = as.integer(points)) |>
+  # drop unneeded columns
+  select(-c(f1, driver_given, driver_family, Results))
+
+# the first 10 rows of the tidy dataset
+f1_tidy |>
+  head(10) |>
+  gt() |>
+  opt_table_font(size = px(12)) |>
+  opt_vertical_padding(scale = 0.5)
+```
+
+-----
+
+
+### Task 2 - Drivers' Championship
+
+#### Write up
+
+First, I abbreviate the `race_name` column using a predefined lookup table and save the result as `f1_abbre`, since later tasks will reference this version. Next, from `f1_abbre`, I select only the columns `race_name`, `finish_position`, and `driver`, as these are the only variables needed for subsequent operations.
+
+I then reshape the dataset using `pivot_wider()`, transforming each race into a separate column with each driver’s `finish_position` as the corresponding value. To include the total points earned by each driver, I create a temporary dataframe that summarizes total points by `driver`. I then use `full_join()` to merge this summary with the pivoted dataset.
+
+After merging, I sort the dataframe in descending order of total points and add a `position` column at the beginning to indicate each driver’s rank based on total points. Finally, to present the table in a clean and readable format, I use the `gt` package to adjust the font size and reduce vertical spacing.
+
+#### Code
+
+```{r task2}
+# lookup table for abbreviating race names
+abbreviation <- c(
+  "Australian Grand Prix" = "AUS",
+  "Bahrain Grand Prix" = "BHR",
+  "Saudi Arabian Grand Prix" = "SAU",
+  "Azerbaijan Grand Prix" = "AZE",
+  "Miami Grand Prix" = "MIA",
+  "Spanish Grand Prix" = "ESP",
+  "Monaco Grand Prix" = "MON",
+  "Canadian Grand Prix" = "CAN",
+  "Austrian Grand Prix" = "AUT",
+  "British Grand Prix" = "GBR",
+  "Hungarian Grand Prix" = "HUN",
+  "Belgian Grand Prix" = "BEL",
+  "Dutch Grand Prix" = "NED",
+  "Italian Grand Prix" = "ITA",
+  "Singapore Grand Prix" = "SIN",
+  "Japanese Grand Prix" = "JPN",
+  "Qatar Grand Prix" = "QAT",
+  "United States Grand Prix" = "USA",
+  "Mexico City Grand Prix" = "MXC",
+  "São Paulo Grand Prix" = "SAP",
+  "Las Vegas Grand Prix" = "LVG",
+  "Abu Dhabi Grand Prix" = "ABU",
+  "Chinese Grand Prix" = "CHN",
+  "Emilia Romagna Grand Prix" = "EMI"
+)
+
+# apply abbreviations
+f1_abbre = f1_tidy |>
+  mutate(race_name = recode(race_name, !!!abbreviation))
+
+# create a summary table with finishing positions for each race and total points
+f1_task2 = f1_abbre |>
+  select(race_name, finish_position, driver) |>
+  # pivot wider so each race becomes a column, values are finishing positions
+  pivot_wider(names_from = race_name, values_from = finish_position) |>
+  # add total points per driver
+  full_join(f1_tidy |>
+              summarise(points = sum(points), .by = driver), 
+            by = join_by(driver)) |>
+  # order by highest to lowest total points
+  arrange(desc(points)) |>
+  # add the ranking `position` column
+  rownames_to_column(var = "position")
+
+# display a neatly formatted result
+f1_task2 |>
+  gt() |>
+  opt_table_font(size = px(12)) |>
+  opt_vertical_padding(scale = 0.5) 
+```
+
+Citation:
+https://stackoverflow.com/questions/66231321/recode-values-based-on-look-up-table-with-dplyr-r
+https://dplyr.tidyverse.org/reference/add_rownames.html
+https://gt.rstudio.com/reference/opt_table_font.html
+https://gt.rstudio.com/reference/opt_vertical_padding.html
+
+
+-----
+
+### Task 3 - Cumulative Constructors
+
+#### Write up
+
+Starting with the `f1_abbre` dataset, I first calculate the total points earned by each constructor in each race using the `summarise()` function. Next, I compute the cumulative points across races for each constructor by combining `reframe()` with the base R function `cumsum()`. This step creates a running total of points accumulated as the season progresses.
+
+Afterward, I use `pivot_wider()` to transform the data so that each race becomes a separate column, with values representing the cumulative points for each constructor. I then sort the resulting table by the `ABU` column, which corresponds to the final race of the season and thus reflects each constructor’s total points.
+
+Finally, to display the table in a clean and professional format, I again use the `gt` package to adjust the font size and reduce vertical spacing.
+
+#### Code
+
+```{r task3}
+f1_task3 = f1_abbre |>
+  # calculate total points per constructor for each race
+  summarise(points = sum(points), .by = c(constructor, race_name)) |>
+  # compute cumulative points across races for each constructor
+  reframe(race_name = race_name, cum_points = cumsum(points), .by = constructor) |>
+  # make each race a column with cumulative points as values
+  pivot_wider(names_from = race_name, values_from = cum_points) |>
+  # order constructors by total points (ABU)
+  arrange(desc(ABU))
+
+# display a neatly formatted result
+f1_task3 |>
+  gt() |>
+  opt_table_font(size = px(12)) |>
+  opt_vertical_padding(scale = 0.5) 
+```
+
+citation: https://rdrr.io/r/base/cumsum.html
+
+-----
+
+### Task 4 - Visualization
+
+#### Write up
+
+To visualize both drivers’ and constructors’ championships in 2024, I create two line plots, one for each championship. I am using cumulative points over each round since it is a good indicator for a driver’s or team’s performance over the season. For both plots, I highlight the top three drivers or constructors who earned the most points by the end of the season. Additionally, in the drivers’ plot, since there are 24 drivers, only the top 10 drivers are labeled to maintain clarity.
+
+For the drivers’ championship, I first prepare the data by selecting `driver`, `round`, and `points` columns. I notice that some drivers missed certain rounds, so I use the `complete()` function to fill in missing combinations of driver and round with `points = 0`. After arranging by `driver` and `round`, I use `reframe()` to do cumulative sum of the points each driver earn calculate correctly. The result is then saved to `f1_task4_1`.
+
+Next, to making plotting easier, I prepare subsets of `f1_task4_1`. Since I want to highlight the top 3 drivers, I first create `top3_drivers`, which identifies the top three drivers by total points, and `top_drivers` and `other_drivers` separate these for emphasis. I also only want to label the top 10 driver, so I identify the top 10 drivers and create `top10_drivers`.
+
+For the drivers' plot, I use `geom_line` to plot the `other_drivers` with a faded `alpha` and the `top_drivers`with full `alpha` and increased `linewidth` for emphasis. I add driver labels for the top 10 using `geom_text()` with careful positioning (`nudge_x` and `hjust`) to prevent overlapping To make the graph aesthetic. I also extend the plot margin with `plot.margin` and `coord_cartesian(clip = "off")` to ensure labels are not cut off. The theme is kept minimal and the legend is removed, as labels provide the necessary identification. The plot is saved to `p1`.
+
+For the constructors' championship, the approach is similar to the drivers'. I use the resulting dataframe from task 3 `f1_task3`, rename the columns as `round`, and transform it into long format with `pivot_longer()`. It is saved as `f1_task4_2.` I also identify the top three constructors (`top3_constructors`) and create separate subsets for them (`top_constructor` and `others_constructor`) and constructors' label.
+
+To make the plot more aesthetic, I refer to each constructor's color and define a color mapping for each constructor to maintain visual consistency. The plotting process mirrors the drivers’ plot, including highlighting top teams and adding labels for all constructors at the final round. The plot is saved to `p2`.
+
+Lastly, I use the `patchwork` package to combine the drivers' (`p1`) and constructors' (`p2`) plots vertically into a single image. To prevent the drivers’ plot from appearing squished and to accommodate text labels, I assign relative heights of 1.5:1 to the driver and constructor plots, respectively, and adjust the figure width and height accordingly.
+
+#### Code
+
+```{r task4, fig.width = 10, fig.height = 15}
+library(patchwork)
+
+# prepare drivers' cumulative points
+f1_task4_1 = f1_abbre |>
+  select(driver, round, points) |>
+  # fills in missing combinations of driver and round with points = 0
+  complete(driver, round = unique(f1_abbre$round), fill = list(points = 0)) |>
+  arrange(driver, round) |>
+  # compute cumulative points for each driver
+  reframe(round, cum_points = cumsum(points), .by = driver)
+
+# top 3 drivers based on final round points
+top3_drivers = f1_task4_1 |>
+  filter(round == 24) |>
+  slice_max(cum_points, n = 3) |>
+  pull(driver)
+
+# split data into top drivers and others for plotting emphasis
+top_drivers= f1_task4_1 |> filter(driver %in% top3_drivers)
+other_drivers = f1_task4_1 |> filter(!driver %in% top3_drivers)
+
+# top 10 drivers for labeling lines
+top10_drivers = f1_task4_1 |>
+  filter(round == 24) |>
+  slice_max(cum_points, n = 10)
+
+# drivers' championship plot
+p1 = ggplot(f1_task4_1, aes(x = round, y = cum_points, color = driver)) +
+  # fade less important drivers
+  geom_line(data = other_drivers, alpha = 0.5) + 
+  # highlight top 3
+  geom_line(data = top_drivers, alpha = 1, linewidth = 1) +
+  labs(x = "Rounds", y = "Points", title = "Drivers' Championship Standings (2024)") +
+  theme_minimal() +
+  # extra right margin for labels
+  theme(legend.position = "none", plot.margin = margin(5, 50, 5, 5)) + 
+  # add labels for top 10 drivers
+  geom_text(data = top10_drivers, aes(label = driver), nudge_x = 0.5, hjust = 0, size = 3) +
+   # allow text to extend beyond plot area
+  coord_cartesian(clip = "off")
+
+
+# prepare constructors' cumulative points
+f1_task4_2 = f1_task3
+colnames(f1_task4_2) = c("constructor", 1:24)
+f1_task4_2 = pivot_longer(f1_task4_2, cols = "1":"24", names_to = "round", values_to = "points")
+
+# top 3 constructors
+top3_constructors = f1_task4_2 |>
+  filter(round == "24") |>
+  slice_max(points, n = 3) |>
+  pull(constructor)
+
+# assign colors for constructors
+constructor_colors = c(
+  "Red Bull" = rgb(23, 24, 92, maxColorValue = 255),
+  "McLaren" = rgb(228, 129, 49, maxColorValue = 255),
+  "Ferrari" = rgb(232, 51, 35, maxColorValue = 255),
+  "Mercedes" = rgb(112, 241, 212, maxColorValue = 255),
+  "Aston Martin" = rgb(37, 89, 80, maxColorValue = 255),
+  "Alpine F1 Team" = rgb(51, 118, 195, maxColorValue = 255),
+  "Haas F1 Team" = rgb(197, 41, 41, maxColorValue = 255),
+  "RB F1 Team" = rgb(29, 52, 196, maxColorValue = 255),
+  "Williams" = rgb(51, 102, 212, maxColorValue = 255),
+  "Sauber" = rgb(106, 228, 69, maxColorValue = 255))
+
+# split constructors into top 3 and others for emphasis
+top_constructor = f1_task4_2 |> filter(constructor %in% top3_constructors)
+others_constructor = f1_task4_2 |> filter(!constructor %in% top3_constructors)
+constructor_labels = f1_task4_2 |> filter(round == 24)
+
+# constructors' championship plot
+p2 = ggplot(f1_task4_2, aes(x = as.integer(round), y = points, color = constructor, group = constructor)) +
+  geom_line(data = others_constructor, alpha = 0.5, linewidth = 0.7) +
+  geom_line(data = top_constructor, alpha = 1, linewidth = 1) +
+  scale_color_manual(values = constructor_colors) +
+  labs(x = "Rounds", y = "Points", title = "Constructors’ Championship Standings (2024)") +
+  theme_minimal() +
+  theme(legend.position = "none", plot.margin = margin(5, 50, 5, 5)) +
+  geom_text(data = constructor_labels, aes(label = constructor), nudge_x = 0.5, hjust = 0, size = 3) +
+  coord_cartesian(clip = "off")
+
+# combine the drivers' and constructors' plots vertically with height ratio
+p1 / p2 + plot_layout(heights = c(1.5, 1))
+```
+Citation: I consulted ChatGPT to assist with extending the plot margins and ensuring that the text labels weren't cut off. 
+https://www.facebook.com/ThisIsFormula1/posts/cut-out-and-keep-every-2025-team-driver-number-nationality-t-cam-colour-formula1/1150488773540045/
+
+-----
